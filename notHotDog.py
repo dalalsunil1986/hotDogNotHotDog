@@ -14,8 +14,8 @@ from mxnet.test_utils import download
 batch_size = 64
 ctx = [mx.cpu()]
 
-train_iter = mx.image.ImageIter(batch_size=batch_size,data_shape=(3,270,270),label_width=1,path_imgrec='mk_train.rec',shuffle=False,part_index=0,num_parts=1)
-val_iter = mx.image.ImageIter(batch_size=batch_size,data_shape=(3,270,270),label_width=1,path_imgrec='mk_val.rec',shuffle=False,part_index=0,num_parts=1)
+train_iter = mx.io.ImageRecordIter(batch_size=batch_size, data_shape=(3,270,270), label_width=1, path_imgrec='mk_train.rec', shuffle=True)
+val_iter = mx.io.ImageRecordIter(batch_size=batch_size, data_shape=(3,270,270), label_width=1, path_imgrec='mk_val.rec', shuffle=False)
 
 # train_iter.reset()
 # for data in train_iter:

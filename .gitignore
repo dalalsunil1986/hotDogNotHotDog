@@ -1,0 +1,12 @@
+# Don't, by default, check in our model params.  You can override this by explicitly
+# `git add`'ing params if you want to save them for all eternity.
+*.params
+
+# Don't check in the recordio files
+*.idx
+*.lst
+*.rec
+
+# Don't check in the video frames
+videoFrames/
+videoFrames.zip
