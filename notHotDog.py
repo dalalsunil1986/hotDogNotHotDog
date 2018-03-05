@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 from mxnet.gluon.model_zoo import vision as models
 from mxnet.image import color_normalize
 import cv2
+from plotImages import PlotImages
 
 batch_size = 64
 ctx = [mx.cpu()]
@@ -52,6 +53,8 @@ class MKDirectionDetect(object):
         print('inside of evaluate function:')
         for i, batch in enumerate(data_iter):
             print('batch%d' %i)
+            print(nd.max(batch.data[0][0]))
+            exit()
             data = color_normalize(batch.data[0]/255,
                                 mean=mx.nd.array([0.485, 0.456, 0.406]).reshape((1,3,1,1)),
                                 std=mx.nd.array([0.229, 0.224, 0.225]).reshape((1,3,1,1)))
@@ -72,9 +75,8 @@ class MKDirectionDetect(object):
         # Training and validation iterators
         train_iter = mx.io.ImageRecordIter(batch_size=batch_size, data_shape=(3,270,270), label_width=1, path_imgrec='mk_train.rec', shuffle=True)
         val_iter = mx.io.ImageRecordIter(batch_size=batch_size, data_shape=(3,270,270), label_width=1, path_imgrec='mk_val.rec', shuffle=False)
-
-        import ipdb 
-        ipdb.set_trace()
+        #import ipdb 
+        #ipdb.set_trace()
 
         epochs = 10
         best_f1 = 0
@@ -99,6 +101,7 @@ class MKDirectionDetect(object):
                 with autograd.record():
                     for x, y in zip(data, label):
                         z = self.dirNet(x)
+                        print(z[0], y[0])
                         # rescale the loss based on class to counter the imbalance problem                
                         L = self.unbalanced_loss(self.loss, z, y)
                         # store the loss and do backward after we have done forward
@@ -128,24 +131,33 @@ class MKDirectionDetect(object):
                 self.dirNet.save_params('direction-%d.params'%(epoch))
 
     def classify_direction(self, url, params):
-        if(params is not None):
-            print('Params loaded!')
-            self.dirNet.load_params(params, ctx=ctx)
-        else:
-            self.dirNet.collect_params().initialize(ctx=ctx)
-    
+        #if(params is not None):
+        #    print('Params loaded!')
+        #    self.dirNet.load_params(params, ctx=ctx)
+        #else:
+        #    self.dirNet.collect_params().initialize(ctx=ctx)
+
         # imageToDisplay = cv2.imread(url)
         # cv2.imshow("image", imageToDisplay)
         # cv2.waitKey(0) #press 0 to exit
+        
+        # Plotting
+        # plotThis = PlotImages()
+        # imagesToPlot = plotThis.imagesToNumpy(url)
+        # plotThis.show_images(imagesToPlot)
 
         I = cv2.imread(url)
-        image = mx.nd.array(I).astype(np.float32)
         
-        image = mx.nd.transpose(mx.nd.array(I), (2,1,1))
-        image = mx.nd.expand_dims(image, axis=0)
-        image = mx.image.color_normalize(image/255, mean=mx.nd.array([0.485, 0.456, 0.406]).reshape((1,3,1,1)), std=mx.nd.array([0.229, 0.224, 0.225]).reshape((1,3,1,1)))
 
-        out = mx.nd.SoftmaxActivation(self.dirNet(image))
+        image = mx.nd.array(I).astype(np.float32)
+        print(image.shape)
+        image = mx.nd.transpose(mx.nd.array(I), (2,1,0))
+
+
+        image = mx.nd.expand_dims(image, axis=0)
+        print(image)
+        image = mx.image.color_normalize(image/255, mean=mx.nd.array([0.485, 0.456, 0.406]).reshape((1,3,1,1)), std=mx.nd.array([0.229, 0.224, 0.225]).reshape((1,3,1,1)))
+        out = mx.nd.softmax(self.dirNet(image))
         print('Probabilities are: '+str(out[0].asnumpy()))
         result = np.argmax(out.asnumpy())
         outstring = ['Right Direction!', 'Wrong Direction!']
@@ -154,20 +166,22 @@ class MKDirectionDetect(object):
 def main():
     model_params = './params/dog-9.params'
     directionModel = MKDirectionDetect()
-    # directionModel.train()
+    directionModel.dirNet.load_params(model_params, ctx=ctx)
+    #directionModel.train()
 
-    # directionModel.dirNet.load_params('./params/dog-9.params', ctx = ctx)
-    # val_names, val_accs = directionModel.evaluate(directionModel.dirNet, val_iter,ctx = ctx)
-    # print('Validation: %s'%(directionModel.metric_str(val_names, val_accs)))
+    directionModel.dirNet.load_params('./params/dog-9.params', ctx = ctx)
+    val_iter = mx.io.ImageRecordIter(batch_size=batch_size, data_shape=(3,270,270), label_width=1, path_imgrec='mk_val.rec', shuffle=False)
+    val_names, val_accs = directionModel.evaluate(directionModel.dirNet, val_iter,ctx = ctx)
+    print('Validation: %s'%(directionModel.metric_str(val_names, val_accs)))
 
-    directionModel.classify_direction("videoFrames/video0/frame122.jpg", model_params)
-    directionModel.classify_direction("videoFrames/video1/frame222.jpg", model_params)
+    #directionModel.classify_direction("videoFrames/video0/frame122.jpg", model_params)
+    """directionModel.classify_direction("videoFrames/video1/frame222.jpg", model_params)
     directionModel.classify_direction("videoFrames/video0/frame254.jpg", model_params)
     directionModel.classify_direction("videoFrames/video1/frame824.jpg", model_params)
     directionModel.classify_direction("videoFrames/video0/frame46.jpg", model_params)
     directionModel.classify_direction("videoFrames/video1/frame50.jpg", model_params)
     directionModel.classify_direction("videoFrames/video0/frame234.jpg", model_params)
-    directionModel.classify_direction("videoFrames/video1/frame854.jpg", model_params)
+    directionModel.classify_direction("videoFrames/video1/frame854.jpg", model_params)"""
 
 if __name__ == '__main__':
     main()
